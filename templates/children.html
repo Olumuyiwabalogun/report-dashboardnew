@@ -1,0 +1,39 @@
+{% extends "_admin_base.html" %}
+{% block title %}Find a child{% endblock %}
+{% block body %}
+<p><a href="{{ url_for('admin') }}">Back to register upload</a></p>
+<h1>Find a child</h1>
+{% if not has_register %}
+<p class="mute">No register has been uploaded yet. <a href="{{ url_for('admin') }}">Upload it first.</a></p>
+{% else %}
+<p class="mute">Type at least two letters of a child's name, a parent's name, or an ID. Searching a parent's name lists their children.</p>
+<p><input id="q" type="search" placeholder="Search children" aria-label="Search children" autofocus></p>
+<p id="msg" class="mute" role="status"></p>
+<div class="scroll"><table>
+  <thead><tr><th>Name</th><th>ID</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+<script>
+const API = "{{ url_for('api_children') }}", BASE = "{{ url_for('children') }}";
+const $ = s => document.querySelector(s);
+const cell = (tag, text) => { const e = document.createElement(tag); e.textContent = text; return e; };
+let timer;
+$("#q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(search, 250); });
+async function search() {
+  const q = $("#q").value.trim(), body = $("#rows"); body.replaceChildren();
+  if (q.length < 2) { $("#msg").textContent = ""; return; }
+  try {
+    const r = await fetch(API + "?q=" + encodeURIComponent(q));
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    $("#msg").textContent = d.total ? (d.total > d.results.length ? "Showing " + d.results.length + " of " + d.total + ". Type more to narrow it down." : d.total + " found.") : "No match. Check the spelling or try the ID.";
+    d.results.forEach(c => {
+      const tr = document.createElement("tr"), td = document.createElement("td"), a = cell("a", c.name);
+      a.href = BASE + "/" + encodeURIComponent(c.id); td.appendChild(a);
+      tr.append(td, cell("td", c.id)); body.appendChild(tr);
+    });
+  } catch (e) { $("#msg").textContent = "Search failed. Reload the page and try again."; }
+}
+</script>
+{% endif %}
+{% endblock %}

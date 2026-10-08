@@ -1,0 +1,38 @@
+{% extends "_admin_base.html" %}
+{% block title %}{{ name }}{% endblock %}
+{% block body %}
+<p><a href="{{ url_for('children') }}">Back to search</a></p>
+<h1>{{ name }}</h1>
+<p class="mute">ID {{ record.id }}</p>
+
+<section class="panel">
+  <h2>Attendance</h2>
+  {% if stats.services_held %}
+  <p>Attended {{ stats.attended }} of {{ stats.services_held }} services ({{ stats.rate }}%).
+     {% if stats.last_seen %}Last seen {{ stats.last_seen }}.{% else %}Never seen at a service.{% endif %}</p>
+  {% if stats.missed_in_a_row %}
+  <p {% if stats.missed_in_a_row >= 3 %}class="err"{% endif %}>Missed the last {{ stats.missed_in_a_row }} service{{ "s" if stats.missed_in_a_row != 1 }} in a row.</p>
+  {% endif %}
+  <div class="scroll"><table>
+    <thead><tr><th>Service date</th><th>Status</th><th>Arrived</th><th>Left</th></tr></thead>
+    <tbody>
+    {% for r in stats.history %}
+      <tr><td>{{ r.date }}</td><td>{{ "Present" if r.present else "Absent" }}</td><td>{{ r.arrived or "-" }}</td><td>{{ r.left or "-" }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  <p class="mute">Services are the dates that appear in your clock-in reports. A Sunday with no report can't be counted.</p>
+  {% else %}
+  <p class="mute">No clock-in reports could be read yet.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Register details</h2>
+  <dl>
+    {% for heading, value in record.details.items() %}
+    <dt>{{ heading }}</dt><dd>{{ value }}</dd>
+    {% endfor %}
+  </dl>
+</section>
+{% endblock %}

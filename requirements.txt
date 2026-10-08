@@ -1,0 +1,4 @@
+Flask==3.0.3
+apig-wsgi==2.18.0
+openpyxl==3.1.5
+# boto3 is provided by the Lambda Python runtime; installed locally via requirements-dev.txt

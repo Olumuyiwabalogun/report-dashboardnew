@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Report Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--ink:#17212b;--mute:#5d6b79;--line:#d5dbe1;--blue:#1f5fbf;--teal:#17806d}
+@media (prefers-color-scheme:dark){:root{--bg:#10161d;--panel:#18212b;--ink:#e8edf2;--mute:#97a5b3;--line:#2b3744;--blue:#6fa3f0;--teal:#4cc2a9}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 12px}
+.sub{color:var(--mute);margin:0 0 24px}
+.stats{display:flex;flex-wrap:wrap;gap:28px;margin-bottom:28px}
+.stat b{display:block;font-size:2rem;line-height:1.1}.stat span{color:var(--mute);font-size:.9rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:20px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.chart{position:relative;height:260px}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
+input[type=search]{flex:1;min-width:200px}label{color:var(--mute);font-size:.9rem;display:flex;align-items:center;gap:6px}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mute);font-weight:600}
+a{color:var(--blue)}
+.empty,.err{color:var(--mute);padding:14px 0}.err{color:#b3261e}
+</style>
+</head>
+<body>
+<main>
+  <h1>Report dashboard</h1>
+  <p class="sub">Every report built in Report Studio, with a search and one-click downloads.</p>
+
+  <p><a href="{{ url_for('children') }}">Search children</a> &nbsp;|&nbsp; <a href="{{ url_for('admin') }}">Upload the register</a></p>
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <section class="panel"><h2>Reports built per week</h2><div class="chart"><canvas id="weekChart"></canvas></div></section>
+    <section class="panel"><h2>Reports built per month</h2><div class="chart"><canvas id="monthChart"></canvas></div></section>
+  </div>
+
+  <section class="panel">
+    <h2>Attendance by service date</h2>
+    <div class="filters">
+      <label>From <input id="attFrom" type="date"></label>
+      <label>To <input id="attTo" type="date"></label>
+    </div>
+    <p class="sub" id="attNote" role="status"></p>
+    <div class="chart"><canvas id="attChart"></canvas></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Date</th><th>Present</th><th>In and out</th><th>In only</th><th>Out only</th><th>Median arrival</th></tr></thead>
+      <tbody id="attRows"></tbody>
+    </table></div>
+  </section>
+
+  <section class="panel">
+    <h2>Find a report</h2>
+    <div class="filters">
+      <input id="q" type="search" placeholder="Search by title or file name" aria-label="Search reports">
+      <label>From <input id="from" type="date"></label>
+      <label>To <input id="to" type="date"></label>
+    </div>
+    <div class="scroll"><table>
+      <thead><tr><th>Title</th><th>Built</th><th>Sheets</th><th>Download</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div id="msg" class="empty" role="status"></div>
+  </section>
+</main>
+
+<script>
+const API = {summary: "{{ url_for('api_summary') }}", reports: "{{ url_for('api_reports') }}", attendance: "{{ url_for('api_attendance') }}"};
+const $ = s => document.querySelector(s);
+const el = (tag, text) => { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; return e; };
+const getJSON = async u => { const r = await fetch(u); if (!r.ok) throw new Error("Request failed (" + r.status + ")"); return r.json(); };
+const LABELS = {pdf: "PDF", xlsx: "Excel"};
+
+function barChart(canvas, labels, values, color) {
+  new Chart(canvas, {type: "bar", data: {labels, datasets: [{data: values, backgroundColor: color}]},
+    options: {maintainAspectRatio: false, plugins: {legend: {display: false}},
+              scales: {y: {beginAtZero: true, ticks: {precision: 0}}}}});
+}
+
+async function loadSummary() {
+  const s = await getJSON(API.summary);
+  const cards = [[s.total, "reports built"], [s.last_30_days, "in the last 30 days"], [s.total_sheets, "sheets processed"]];
+  if (s.latest) cards.push([s.latest.date, "latest: " + s.latest.title]);
+  cards.forEach(([n, label]) => { const d = el("div"); d.className = "stat"; d.append(el("b", n), el("span", label)); $("#stats").appendChild(d); });
+  const css = getComputedStyle(document.documentElement);
+  barChart($("#weekChart"), s.by_week.labels, s.by_week.values, css.getPropertyValue("--blue"));
+  barChart($("#monthChart"), s.by_month.labels, s.by_month.values, css.getPropertyValue("--teal"));
+}
+
+async function loadRows() {
+  const p = new URLSearchParams({q: $("#q").value, from: $("#from").value, to: $("#to").value});
+  const rows = await getJSON(API.reports + "?" + p);
+  const body = $("#rows"); body.replaceChildren();
+  $("#msg").className = "empty";
+  $("#msg").textContent = rows.length ? "" : "No reports match. Clear the search or widen the dates.";
+  rows.forEach(r => {
+    const tr = el("tr");
+    [r.title, r.created_at.replace("T", " ").slice(0, 16), r.sheet_count].forEach(v => tr.appendChild(el("td", v)));
+    const td = el("td");
+    r.formats.forEach((f, i) => {
+      if (i) td.append(" | ");
+      const a = el("a", LABELS[f] || f);
+      a.href = "/reports/" + encodeURIComponent(r.report_id) + "/download?format=" + f;
+      td.appendChild(a);
+    });
+    tr.appendChild(td); body.appendChild(tr);
+  });
+}
+
+let attChart;
+async function loadAttendance() {
+  const p = new URLSearchParams({from: $("#attFrom").value, to: $("#attTo").value});
+  const a = await getJSON(API.attendance + "?" + p);
+  const t = a.totals, body = $("#attRows"); body.replaceChildren();
+  let note = "No attendance found for these dates.";
+  if (a.services.length) {
+    note = t.services + " services, an average of " + t.average_present + " children present, busiest " +
+      t.busiest.date + " with " + t.busiest.present + ". " + t.unique_children + " different children attended.";
+  }
+  if (a.skipped_reports) note += " " + a.skipped_reports + " reports had no ID, Date and Time columns and were skipped.";
+  $("#attNote").textContent = note;
+  a.services.forEach(s => {
+    const tr = el("tr");
+    [s.date, s.present, s.in_and_out, s.in_only, s.out_only, s.median_arrival || "-"].forEach(v => tr.appendChild(el("td", v)));
+    body.appendChild(tr);
+  });
+  if (attChart) attChart.destroy();
+  attChart = new Chart($("#attChart"), {type: "bar",
+    data: {labels: a.services.map(s => s.date.slice(5)), datasets: [{data: a.services.map(s => s.present),
+      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue("--blue")}]},
+    options: {maintainAspectRatio: false, plugins: {legend: {display: false}},
+              scales: {y: {beginAtZero: true, ticks: {precision: 0}}}}});
+}
+["#attFrom", "#attTo"].forEach(sel => $(sel).addEventListener("change", () =>
+  loadAttendance().catch(e => { $("#attNote").textContent = "Could not load attendance: " + e.message; })));
+
+let timer; const debounced = () => { clearTimeout(timer); timer = setTimeout(loadRows, 250); };
+["#q", "#from", "#to"].forEach(s => $(s).addEventListener("input", debounced));
+Promise.all([loadSummary(), loadRows(), loadAttendance()]).catch(e => { $("#msg").className = "err"; $("#msg").textContent = "Could not load reports: " + e.message; });
+</script>
+</body>
+</html>

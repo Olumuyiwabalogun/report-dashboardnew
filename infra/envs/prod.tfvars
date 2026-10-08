@@ -1,0 +1,6 @@
+env                  = "prod"
+region               = "us-east-1"
+reports_bucket_name  = "excel-report-generator-501187946999"
+table_name           = "excel-report-generator-reports"
+password_param       = "/report-dashboard/prod/password"
+admin_password_param = "/report-dashboard/prod/admin-password"

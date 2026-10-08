@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Register upload</title>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--ink:#17212b;--mute:#5d6b79;--line:#d5dbe1;--blue:#1f5fbf;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#10161d;--panel:#18212b;--ink:#e8edf2;--mute:#97a5b3;--line:#2b3744;--blue:#6fa3f0;--bad:#f2b8b5}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 20px 64px}
+h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.05rem;margin:0 0 10px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px;margin:18px 0}
+.mute{color:var(--mute)}.err{color:var(--bad);font-weight:600}
+dl{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;margin:0}dt{color:var(--mute)}dd{margin:0}
+button,input[type=file]{font:inherit}
+button{padding:8px 16px;border:0;border-radius:4px;background:var(--blue);color:#fff;cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+a{color:var(--blue)}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="{{ url_for('index') }}">Back to the dashboard</a></p>
+  <h1>Register upload</h1>
+  <p><a href="{{ url_for('children') }}">Search children</a></p>
+  <p class="mute">Upload the user-list export from the clock-in machine. Each upload replaces the current register, and the previous version is kept for recovery.</p>
+
+  <section class="panel">
+    <h2>Current register</h2>
+    {% if current %}
+    <p>{{ current.children }} children, uploaded {{ current.uploaded_at }}.</p>
+    {% else %}
+    <p class="mute">No register has been uploaded yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Upload a new register</h2>
+    {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+    <form method="post" action="{{ url_for('admin_upload') }}" enctype="multipart/form-data">
+      <p><input type="file" name="file" accept=".xlsx" required aria-label="Excel register file"></p>
+      <button type="submit">Upload register</button>
+    </form>
+  </section>
+
+  {% if result %}
+  <section class="panel" role="status">
+    <h2>Upload saved</h2>
+    <dl>
+      <dt>Children in the register</dt><dd>{{ result.children }}</dd>
+      <dt>Column headings found</dt><dd>{{ result.columns | join(", ") }} (heading row {{ result.header_row }})</dd>
+      <dt>IDs listed more than once</dt><dd>{{ result.duplicate_ids }}</dd>
+      <dt>Have attended at least once</dt><dd>{{ result.seen }}</dd>
+      <dt>Registered, never attended</dt><dd>{{ result.never_attended }}</dd>
+      <dt>Attended but not in the register</dt><dd>{{ result.not_in_register }}</dd>
+    </dl>
+    <p class="mute">If the last number is large, the IDs in the register may not match the machine's IDs. Check before relying on absence lists.</p>
+  </section>
+  {% endif %}
+</main>
+</body>
+</html>

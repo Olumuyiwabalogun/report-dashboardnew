@@ -1,0 +1,14 @@
+REPORT DASHBOARD - START HERE
+
+1. Unzip this folder somewhere new. Do not mix it with older copies.
+2. Windows: double-click run.bat      Mac/Linux: run ./run.sh
+3. The browser opens at http://127.0.0.1:5000
+
+   Home page ........ http://127.0.0.1:5000/
+   Search children .. http://127.0.0.1:5000/admin/children
+   Upload register .. http://127.0.0.1:5000/admin
+
+This is DEMO MODE: sample data only, nothing is read from or sent to AWS,
+and anything you upload is forgotten when you stop the program.
+
+Run the checks:  .venv\Scripts\activate  then  pytest   (Mac/Linux: source .venv/bin/activate)
